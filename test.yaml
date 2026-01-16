@@ -7,7 +7,6 @@ trigger:
       id: set_controlled_message
       variable: Local.ControlledMessage
       value: '=UserMessage("You must begin your reply with exactly one tag: [RESOLVED] or [NEED_INFO] or [DRAFT_INCIDENT] or [ANALYTICS]. Do not create or update any ServiceNow record yet. Use the ServiceNow knowledge search tool if relevant.\n\nIf the user asks for metrics/counts/trends, use [ANALYTICS] and provide the report.\n\nUSER REQUEST:\n" & System.LastMessageText)'
-    
     - kind: InvokeAzureAgent
       id: invoke_snow_agent
       agent:
@@ -18,12 +17,10 @@ trigger:
       output:
         messages: Local.AgentMessages
         autoSend: false
-
     - kind: SetVariable
       id: set_last_agent_text
       variable: Local.LastAgentText
       value: =Last(Local.AgentMessages).Text
-
     - kind: ConditionGroup
       id: route_by_tag
       conditions:
@@ -35,7 +32,6 @@ trigger:
               activity: =Local.LastAgentText
             - kind: EndConversation
               id: end_resolved
-        
         - id: if_analytics
           condition: =!IsBlank(Find("[ANALYTICS]", Upper(Local.LastAgentText)))
           actions:
@@ -44,7 +40,6 @@ trigger:
               activity: =Local.LastAgentText
             - kind: EndConversation
               id: end_analytics
-        
         - id: if_need_info
           condition: =!IsBlank(Find("[NEED_INFO]", Upper(Local.LastAgentText)))
           actions:
@@ -61,29 +56,24 @@ trigger:
               id: invoke_snow_agent_again
               agent:
                 name: SERVICENOW-DEMO-V1
-
         - id: if_draft_incident
           condition: =!IsBlank(Find("[DRAFT_INCIDENT]", Upper(Local.LastAgentText)))
           actions:
             - kind: GotoAction
               id: goto_refine_flow
               actionId: refinement_flow_entry
-      
       elseActions:
         - kind: GotoAction
           id: goto_refine_flow_else
           actionId: refinement_flow_entry
-
     - kind: SetVariable
       id: refinement_flow_entry
       variable: Local.RefineInput
       value: =Local.LastAgentText
-
     - kind: SetVariable
       id: set_refine_message
       variable: Local.RefineMessage
       value: '=UserMessage("REFERENCE: Use your tool to list the last 20 RESOLVED incidents.\n\nTASK:\n1) Extract the DRAFT incident JSON from the text below.\n2) Compare it to the last 20 resolved cases.\n3) Determine the most accurate category and assignment_group (Queue) used historically.\n4) If short_description contains Site Down, Global, or All Users: set urgency and impact to 1.\n5) Rewrite short_description to be professional.\n6) Output ONLY a single JSON object. Ensure urgency and impact are provided as integers (1, 2, or 3) without quotes.\n\nJSON SCHEMA:\n{short_description, description, urgency, impact, priority, major_incident, category, assignment_group, confidence, rationale}\n\nDRAFT INPUT:\n" & Local.RefineInput)'
-
     - kind: InvokeAzureAgent
       id: invoke_historical_match
       agent:
@@ -94,27 +84,22 @@ trigger:
       output:
         messages: Local.AgentMessages
         autoSend: false
-
     - kind: SetVariable
       id: set_final_json
       variable: Local.FinalJSON
       value: =Last(Local.AgentMessages).Text
-
     - kind: SetVariable
       id: approval_flow_entry
       variable: Local.DraftText
       value: =Local.FinalJSON
-
     - kind: SendActivity
       id: show_draft
       activity: =Local.DraftText
-
     - kind: Question
       id: ask_approval
       variable: Local.Approval
       entity: StringPrebuiltEntity
       prompt: Approve creating this ServiceNow incident? Reply Yes or No.
-
     - kind: ConditionGroup
       id: approval_gate
       conditions:
@@ -125,7 +110,6 @@ trigger:
               id: set_create_message
               variable: Local.CreateMessage
               value: "=UserMessage(\"CREATE NOW. You must begin your reply with [INCIDENT_CREATED]. Use the Create Record tool. IMPORTANT: Map JSON 'urgency' and 'impact' to tool parameters as integers. Map 'category' and 'assignment_group' to their parameters. Put all other text in description.\n\nJSON:\n\" & Local.DraftText)"
-            
             - kind: InvokeAzureAgent
               id: invoke_create_incident
               agent:
@@ -136,21 +120,14 @@ trigger:
               output:
                 messages: Local.AgentMessages
                 autoSend: false
-
             - kind: SendActivity
               id: send_created
               activity: =Last(Local.AgentMessages).Text
-            
             - kind: EndConversation
               id: end_created
-      
       elseActions:
         - kind: SendActivity
           id: send_cancelled
           activity: Understood. I will not create an incident.
         - kind: EndConversation
           id: end_cancelled
-
-id: "sn_automated_triage_v1"
-name: "ServiceNow Automated Triage"
-description: "Resolves via KB, drafts incidents, matches to last 20 resolved cases for routing, and creates record on approval."
